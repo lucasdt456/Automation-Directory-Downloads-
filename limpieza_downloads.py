@@ -14,17 +14,24 @@ def comprobar_archivos_directorios():
     archivos_procesados=0
     archivos_sin_mover=0
 
-    for archivo in directorio_descargas.iterdir():
+    archivo_log=directorio_descargas/"Logs_Novedades"
+    archivo_log.mkdir(parents=True, exist_ok=True) 
 
-        if archivo.is_dir() or archivo.name.startswith("."):
-            continue
+    try:
+        if not directorio_descargas.exists():
+            print(f"Error. No se encuentra {directorio_descargas}")
+            return
 
-        tiempo_archivo = archivo.stat().st_mtime
-        tamanio_archivo = archivo.stat().st_size
-        antiguedad = tiempo_ahora - tiempo_archivo
+        for archivo in directorio_descargas.iterdir():
 
-        if antiguedad > LIMITE_SEGUNDOS:
-            try:
+            if archivo.is_dir() or archivo.name.startswith("."):
+                continue
+
+            tiempo_archivo = archivo.stat().st_mtime
+            tamanio_archivo = archivo.stat().st_size
+            antiguedad = tiempo_ahora - tiempo_archivo
+
+            if antiguedad > LIMITE_SEGUNDOS:
                 extension=archivo.suffix
                 nombre_carpeta=f"Archivos_Antiguos/Extension_{extension.upper().replace(".","")}"
                 directorio_antiguedad=directorio_descargas/nombre_carpeta
@@ -43,26 +50,23 @@ def comprobar_archivos_directorios():
                         str(archivo_comprimido),
                         str(archivo),
                         ], check=True, capture_output=True) # Para que no ensucie la consola del cron
-                    
+                        
                     archivo.unlink() # Borramos el original
 
                 else:
                     print(f"Moviendo {archivo.name}...")
                     subprocess.run(["mv", str(archivo), str(directorio_antiguedad)])
-                
+                    
                 archivos_procesados+=1
 
-            except Exception as e:
-                print(f"Error procesando {archivo}: {e}")
+            else:
+                archivos_sin_mover+=1
 
-        else:
-            archivos_sin_mover+=1
-    
-    archivo_log=directorio_descargas/"Logs_Novedades"
-    if not archivo_log.exists():
-        archivo_log.mkdir(parents=True, exist_ok=True)            
-            
-    with open(f"{archivo_log}/logs_{fecha}.log","a") as logs:
+    except Exception as e:
+        print(f"Error durante la ejecución: {e}")
+
+    ruta_final_log = archivo_log / f"logs_{fecha}.log"
+    with open(ruta_final_log,"a") as logs:
         logs.write("=========================================================\n")
         logs.write(f"Ejecución el día: {fecha}\n")
         logs.write("---------------------------------------------------------\n")
@@ -70,6 +74,8 @@ def comprobar_archivos_directorios():
         logs.write("---------------------------------------------------------\n")
         logs.write(f"Total de archivos ignorados (recientes): {archivos_sin_mover}\n")
         logs.write("=========================================================\n")
+
+    print(f"Fin del script. Procesados: {archivos_procesados}")
 
 if __name__ == '__main__':
     comprobar_archivos_directorios()
